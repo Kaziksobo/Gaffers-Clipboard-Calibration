@@ -51,9 +51,10 @@ def main() -> None:
             # Only this scrape's season is ever used downstream, and the rest bloats
             # the cache ~7x for no benefit, so drop it before pickling.
             for player in player_stats:
-                player.career_stats = player.career_stats[
-                    player.career_stats["year"] == season
-                ].reset_index(drop=True)
+                if "year" in player.career_stats.columns:
+                    player.career_stats = player.career_stats[
+                        player.career_stats["year"] == season
+                    ].reset_index(drop=True)
 
             with open(path, "wb") as f:
                 pickle.dump(player_stats, f)
