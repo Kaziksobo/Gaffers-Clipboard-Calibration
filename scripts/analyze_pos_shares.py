@@ -15,9 +15,9 @@ from typing import Any
 
 import pandas as pd
 
-from scrape_pos_data import LEAGUES, RAW_DIR, SEASONS, cache_path
+from scripts.scrape_pos_data import LEAGUES, RAW_DIR, SEASONS, cache_path
 
-OUTPUT_PATH = Path(__file__).parent / "data" / "pos_shares.json"
+OUTPUT_PATH = Path(__file__).parent.parent / "data" / "pos_shares.json"
 
 # Sofascore's uniqueTournament.name doesn't always match ScraperFC's league query
 # string (e.g. "Spain La Liga" scrapes under the tournament name "LaLiga").
@@ -33,7 +33,11 @@ LEAGUE_TOURNAMENT_NAMES = {
 
 def _load_cached_scrapes() -> list[dict[str, Any]]:
     """Load every cached pickle, pairing each back up with its league/season via filename."""
-    path_to_combo = {cache_path(league, season): (league, season) for league in LEAGUES for season in SEASONS}
+    path_to_combo = {
+        cache_path(league, season): (league, season)
+        for league in LEAGUES
+        for season in SEASONS
+    }
 
     scrapes = []
     for path in sorted(path_to_combo):
@@ -42,7 +46,9 @@ def _load_cached_scrapes() -> list[dict[str, Any]]:
         league, season = path_to_combo[path]
         with open(path, "rb") as f:
             player_stats = pickle.load(f)
-        scrapes.append({"league": league, "season": season, "player_stats": player_stats})
+        scrapes.append(
+            {"league": league, "season": season, "player_stats": player_stats}
+        )
     return scrapes
 
 
@@ -56,11 +62,16 @@ def _goals_assists_minutes_by_position(
 
     df = pd.DataFrame([asdict(p) for p in scrape["player_stats"]])
     all_positions = [
-        pos for pos in df["positions_detailed"].explode().unique().tolist() if pd.notna(pos)
+        pos
+        for pos in df["positions_detailed"].explode().unique().tolist()
+        if pd.notna(pos)
     ]
 
     def get_goals_assists_minutes(career_stats: pd.DataFrame) -> pd.Series:
-        if "uniqueTournament.name" not in career_stats.columns or "year" not in career_stats.columns:
+        if (
+            "uniqueTournament.name" not in career_stats.columns
+            or "year" not in career_stats.columns
+        ):
             return pd.Series({"goals": 0, "assists": 0, "minutes": 0})
         matches = career_stats[
             (career_stats["uniqueTournament.name"] == tournament_name)
@@ -74,7 +85,9 @@ def _goals_assists_minutes_by_position(
             }
         )
 
-    df[["goals", "assists", "minutes"]] = df["career_stats"].apply(get_goals_assists_minutes)
+    df[["goals", "assists", "minutes"]] = df["career_stats"].apply(
+        get_goals_assists_minutes
+    )
 
     pos_goals = dict.fromkeys(all_positions, 0.0)
     pos_assists = dict.fromkeys(all_positions, 0.0)
@@ -94,7 +107,9 @@ def _goals_assists_minutes_by_position(
     return pos_goals, pos_assists, pos_minutes
 
 
-def _to_p90_rates(pos_totals: dict[str, float], pos_minutes: dict[str, float]) -> dict[str, float]:
+def _to_p90_rates(
+    pos_totals: dict[str, float], pos_minutes: dict[str, float]
+) -> dict[str, float]:
     """Convert raw per-position totals into a per-90-minutes rate.
 
     Positions with zero minutes played in this scrape are omitted rather than
@@ -118,7 +133,9 @@ def _normalize(rates: dict[str, float]) -> dict[str, float]:
 def main() -> None:
     scrapes = _load_cached_scrapes()
     if not scrapes:
-        raise SystemExit(f"No cached scrapes found in {RAW_DIR}. Run scrape_pos_data.py first.")
+        raise SystemExit(
+            f"No cached scrapes found in {RAW_DIR}. Run scrape_pos_data.py first."
+        )
 
     goals_p90_per_combo: list[dict[str, float]] = []
     assists_p90_per_combo: list[dict[str, float]] = []
@@ -135,8 +152,12 @@ def main() -> None:
         values = [rates[pos] for rates in rates_per_combo if pos in rates]
         return sum(values) / len(values) if values else 0.0
 
-    pos_goals_p90 = _normalize({pos: average_rate(goals_p90_per_combo, pos) for pos in all_positions})
-    pos_assists_p90 = _normalize({pos: average_rate(assists_p90_per_combo, pos) for pos in all_positions})
+    pos_goals_p90 = _normalize(
+        {pos: average_rate(goals_p90_per_combo, pos) for pos in all_positions}
+    )
+    pos_assists_p90 = _normalize(
+        {pos: average_rate(assists_p90_per_combo, pos) for pos in all_positions}
+    )
 
     OUTPUT_PATH.parent.mkdir(parents=True, exist_ok=True)
     with open(OUTPUT_PATH, "w") as f:

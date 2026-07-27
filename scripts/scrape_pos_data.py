@@ -20,7 +20,7 @@ LEAGUES = [
 ]
 SEASONS = ["23/24", "24/25", "25/26"]
 
-RAW_DIR = Path(__file__).parent / "data" / "raw"
+RAW_DIR = Path(__file__).parent.parent / "data" / "raw"
 
 
 def cache_path(league: str, season: str) -> Path:
